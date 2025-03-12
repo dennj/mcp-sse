@@ -1,0 +1,5 @@
+Name: US Weather
+Description: US Weather API
+Logo: https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/US-NationalWeatherService-Logo.svg/800px-US-NationalWeatherService-Logo.svg.png
+Communication: MCP
+Author: dennj.osele@gmail.com
