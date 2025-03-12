@@ -5,6 +5,7 @@ from starlette.applications import Starlette
 from mcp.server.sse import SseServerTransport
 from starlette.requests import Request
 from starlette.routing import Mount, Route
+from starlette.staticfiles import StaticFiles
 from mcp.server import Server
 import uvicorn
 
@@ -44,7 +45,7 @@ Instructions: {props.get('instruction', 'No specific instructions provided')}
 
 
 @mcp.tool()
-async def get_alerts(state: str) -> str:
+async def get_alerts(state: str) -> dict:
     """Get weather alerts for a US state.
 
     Args:
@@ -54,13 +55,13 @@ async def get_alerts(state: str) -> str:
     data = await make_nws_request(url)
 
     if not data or "features" not in data:
-        return "Unable to fetch alerts or no alerts found."
+        return {"status": "error", "message": "Unable to fetch alerts or no alerts found."}
 
     if not data["features"]:
-        return "No active alerts for this state."
+        return {"status": "ok", "alerts": []}
 
     alerts = [format_alert(feature) for feature in data["features"]]
-    return "\n---\n".join(alerts)
+    return {"status": "ok", "alerts": alerts}
 
 
 @mcp.tool()
@@ -101,7 +102,7 @@ Forecast: {period['detailedForecast']}
 
 
 def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlette:
-    """Create a Starlette application that can server the provied mcp server with SSE."""
+    """Create a Starlette application that can serve the provided MCP server with SSE."""
     sse = SseServerTransport("/messages/")
 
     async def handle_sse(request: Request) -> None:
@@ -116,13 +117,18 @@ def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlett
                 mcp_server.create_initialization_options(),
             )
 
-    return Starlette(
+    app = Starlette(
         debug=debug,
         routes=[
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
         ],
     )
+
+    # ✅ Serve agents.txt by mounting the root directory as static files
+    app.mount("/", StaticFiles(directory="."), name="static")
+
+    return app
 
 
 if __name__ == "__main__":
